@@ -1,0 +1,15 @@
+services:
+  picker-wheel:
+    container_name: picker-wheel
+    build: .
+    image: picker-wheel
+    ports:
+      - "8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped

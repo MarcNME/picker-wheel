@@ -1,0 +1,38 @@
+name: Build image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          load: true
+          tags: picker-wheel:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test
+        run: |
+          docker run -d --name picker-wheel --read-only --tmpfs /tmp -p 8080:8080 picker-wheel:ci
+          for i in $(seq 1 10); do
+            curl -fsS -o /dev/null http://localhost:8080/ && exit 0
+            sleep 1
+          done
+          docker logs picker-wheel
+          exit 1
