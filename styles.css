@@ -68,12 +68,14 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 20px;
+  width: min(640px, 100%, 70vh);
+  min-width: 0;
 }
 
 .wheel-wrapper {
   position: relative;
-  width: min(640px, 90vw, 70vh);
-  height: min(640px, 90vw, 70vh);
+  width: 100%;
+  aspect-ratio: 1;
 }
 
 .pointer {
@@ -90,12 +92,19 @@ body {
   filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
 }
 
-canvas#wheel {
+.wheel-disc {
   width: 100%;
   height: 100%;
   border-radius: 50%;
+  overflow: hidden;
   box-shadow: 0 0 0 8px var(--panel), 0 8px 24px rgba(0,0,0,0.45);
   background: var(--panel);
+}
+
+canvas#wheel {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .hub {
@@ -116,6 +125,17 @@ button {
   cursor: pointer;
   border: none;
   border-radius: 8px;
+}
+
+button:disabled,
+input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+:focus-visible {
+  outline: 3px solid #feca57;
+  outline-offset: 3px;
 }
 
 /* Firefox adds a hidden inner border/padding to buttons that throws off
@@ -139,6 +159,9 @@ button::-moz-focus-inner {
 
 .result {
   min-height: 28px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
   font-size: 18px;
   font-weight: 600;
 }
@@ -151,7 +174,8 @@ button::-moz-focus-inner {
   border-radius: 12px;
   padding: 20px;
   width: 300px;
-  max-width: 90vw;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .panel h2 {
@@ -168,6 +192,7 @@ button::-moz-focus-inner {
   gap: 8px;
   flex: 1;
   min-height: 120px;
+  max-height: 420px;
   overflow-y: auto;
   margin-bottom: 14px;
   padding-right: 4px;
@@ -194,6 +219,7 @@ button::-moz-focus-inner {
 
 .item-row label {
   flex: 1;
+  min-width: 0;
   font-size: 14px;
   word-break: break-word;
   cursor: pointer;
@@ -275,21 +301,28 @@ button::-moz-focus-inner {
 .win-overlay {
   position: fixed;
   inset: 0;
-  display: flex;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 16px;
+  border: 0;
+  color: inherit;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 10, 16, 0.65);
-  backdrop-filter: blur(4px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s ease;
+  background: transparent;
   z-index: 10;
   overflow: hidden;
 }
 
-.win-overlay.visible {
-  opacity: 1;
-  pointer-events: auto;
+.win-overlay[open] {
+  display: flex;
+}
+
+.win-overlay::backdrop {
+  background: rgba(10, 10, 16, 0.65);
+  backdrop-filter: blur(4px);
 }
 
 .win-card {
@@ -300,15 +333,10 @@ button::-moz-focus-inner {
   padding: 40px 48px;
   text-align: center;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-  transform: scale(0.7) translateY(20px);
-  opacity: 0;
-  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
   max-width: 90vw;
-}
-
-.win-overlay.visible .win-card {
-  transform: scale(1) translateY(0);
-  opacity: 1;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  z-index: 2;
 }
 
 .win-label {
@@ -348,6 +376,7 @@ button::-moz-focus-inner {
 
 .confetti-piece {
   position: absolute;
+  pointer-events: none;
   top: -10px;
   width: 8px;
   height: 14px;
@@ -360,5 +389,12 @@ button::-moz-focus-inner {
   to {
     transform: translateY(110vh) rotate(540deg);
     opacity: 0.2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }
