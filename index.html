@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Picker Wheel</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <div class="wheel-column">
+      <div class="wheel-wrapper">
+        <div class="pointer"></div>
+        <canvas id="wheel" width="600" height="600"></canvas>
+        <div class="hub"></div>
+      </div>
+      <button id="spinBtn">Spin</button>
+      <div class="result" id="result"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Items</h2>
+      <div class="item-list" id="itemList"></div>
+      <div class="add-row">
+        <input type="text" id="newItemInput" placeholder="Add new item…" maxlength="40">
+        <button id="addBtn">Add</button>
+      </div>
+      <div class="io-row">
+        <button id="exportBtn" type="button">Export</button>
+        <button id="importBtn" type="button">Import</button>
+        <input type="file" id="importFileInput" accept="application/json,.json" hidden>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <a href="https://github.com/MarcNME/picker-wheel" target="_blank" rel="noopener noreferrer">
+      <img src="https://github.githubassets.com/favicons/favicon-dark.svg" alt="GitHub" class="github-logo" width="16" height="16">
+      Source code
+    </a>
+  </footer>
+
+  <div class="win-overlay" id="winOverlay">
+    <div class="win-card">
+      <div class="win-label">Winner</div>
+      <div class="win-emoji">🎉</div>
+      <div class="win-name" id="winName"></div>
+      <button id="winCloseBtn">Nice!</button>
+    </div>
+  </div>
+
+<script src="script.js"></script>
+</body>
+</html>
