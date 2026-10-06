@@ -2,6 +2,9 @@
   const COLORS = ['#ff6b6b', '#feca57', '#1dd1a1', '#54a0ff', '#5f27cd', '#ff9ff3', '#00d2d3', '#f368e0', '#ff9f43', '#48dbfb'];
 
   const ITEMS_STORAGE_KEY = 'pickerWheelItems';
+  const MAX_ITEMS = 100;
+  const MAX_NAME_LENGTH = 40;
+  const MAX_FILE_BYTES = 64 * 1024;
   const DEFAULT_ITEMS = [
     { name: 'Pizza', enabled: true },
     { name: 'Sushi', enabled: true },
@@ -13,6 +16,21 @@
     { name: 'Sandwich', enabled: true }
   ];
 
+  function normalizeItems(value) {
+    if (!Array.isArray(value)) throw new Error('Expected a JSON array of items.');
+    if (value.length > MAX_ITEMS) throw new Error(`Use at most ${MAX_ITEMS} items.`);
+    return value.map((item, index) => {
+      if (!item || typeof item.name !== 'string' || typeof item.enabled !== 'boolean') {
+        throw new Error(`Item ${index + 1} needs a name and a boolean enabled value.`);
+      }
+      const name = item.name.trim();
+      if (!name || name.length > MAX_NAME_LENGTH) {
+        throw new Error(`Item ${index + 1} needs a name of 1-${MAX_NAME_LENGTH} characters.`);
+      }
+      return { name, enabled: item.enabled };
+    });
+  }
+
   function loadItems() {
     let raw = null;
     try {
@@ -20,12 +38,9 @@
     } catch (e) {
       // storage can be unavailable (private mode / blocked cookies)
     }
-    if (!raw) return DEFAULT_ITEMS.map(it => ({ ...it }));
+    if (!raw || raw.length > MAX_FILE_BYTES) return DEFAULT_ITEMS.map(it => ({ ...it }));
     try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.every(it => it && typeof it.name === 'string')) {
-        return parsed.map(it => ({ name: it.name, enabled: !!it.enabled }));
-      }
+      return normalizeItems(JSON.parse(raw));
     } catch (e) {
       // fall through to defaults on malformed stored data
     }
@@ -58,7 +73,17 @@
 
   let rotation = 0;      // current total rotation in degrees
   let spinning = false;
+  let importing = false;
   let confettiTimeout = null;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  function updateControls() {
+    const busy = spinning || importing;
+    spinBtn.disabled = busy;
+    document.querySelectorAll('.panel input, .panel button').forEach(control => {
+      control.disabled = busy;
+    });
+  }
 
   const CONFETTI_COLORS = ['#ff6b6b', '#feca57', '#1dd1a1', '#54a0ff', '#5f27cd', '#ff9ff3', '#48dbfb'];
 
@@ -83,15 +108,20 @@
 
   function showWinScreen(name) {
     winName.textContent = name;
-    winOverlay.classList.add('visible');
-    launchConfetti();
+    winOverlay.showModal();
+    if (!reducedMotion.matches) launchConfetti();
   }
 
   function hideWinScreen() {
-    winOverlay.classList.remove('visible');
+    winOverlay.close();
   }
 
   winCloseBtn.addEventListener('click', hideWinScreen);
+  winOverlay.addEventListener('close', () => {
+    clearTimeout(confettiTimeout);
+    winOverlay.querySelectorAll('.confetti-piece').forEach(piece => piece.remove());
+    spinBtn.focus();
+  });
   winOverlay.addEventListener('click', (e) => {
     if (e.target === winOverlay) hideWinScreen();
   });
@@ -105,7 +135,13 @@
   }
 
   function drawWheel() {
-    const size = canvas.width;
+    const size = 600;
+    const pixelSize = Math.max(1, Math.round(canvas.clientWidth * window.devicePixelRatio));
+    if (canvas.width !== pixelSize || canvas.height !== pixelSize) {
+      canvas.width = pixelSize;
+      canvas.height = pixelSize;
+    }
+    ctx.setTransform(pixelSize / size, 0, 0, pixelSize / size, 0, 0);
     const cx = size / 2;
     const cy = size / 2;
     const radius = size / 2 - 6;
@@ -114,6 +150,7 @@
 
     const active = enabledItems();
     const count = active.length;
+    canvas.setAttribute('aria-label', `Picker wheel with ${count} enabled items`);
 
     if (count === 0) {
       ctx.beginPath();
@@ -153,9 +190,26 @@
       ctx.rotate(mid);
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#1e1f29';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillText(item.name, radius - 18, 0);
+      ctx.fillStyle = colorFor(colorIndex) === '#5f27cd' ? '#fff' : '#1e1f29';
+      const labelEnd = radius - 18;
+      let fontSize = 20;
+      let availableWidth;
+      do {
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        const innerEdge = count > 2 ? fontSize * 0.7 / Math.tan(anglePer / 2) : 0;
+        availableWidth = labelEnd - Math.max(size * 0.12, innerEdge);
+        if (ctx.measureText(item.name).width <= availableWidth || fontSize === 12) break;
+        fontSize -= 1;
+      } while (fontSize >= 12);
+      const characters = Array.from(item.name);
+      let label = item.name;
+      while (characters.length && ctx.measureText(label).width > availableWidth) {
+        characters.pop();
+        label = characters.join('') + '…';
+      }
+      if (characters.length && ctx.measureText(label).width <= availableWidth) {
+        ctx.fillText(label, labelEnd, 0);
+      }
       ctx.restore();
     });
   }
@@ -184,6 +238,7 @@
       checkbox.checked = item.enabled;
       checkbox.id = 'item-' + index;
       checkbox.addEventListener('change', () => {
+        if (spinning || importing) return;
         item.enabled = checkbox.checked;
         row.classList.toggle('disabled', !item.enabled);
         drawWheel();
@@ -198,7 +253,9 @@
       removeBtn.className = 'remove-btn';
       removeBtn.textContent = '✕';
       removeBtn.title = 'Remove item';
+      removeBtn.setAttribute('aria-label', `Remove ${item.name}`);
       removeBtn.addEventListener('click', () => {
+        if (spinning || importing) return;
         items.splice(index, 1);
         renderItemList();
         drawWheel();
@@ -214,9 +271,13 @@
   }
 
   function addItem() {
-    const name = newItemInput.value.trim();
-    if (!name) return;
-    items.push({ name, enabled: true });
+    if (spinning || importing) return;
+    try {
+      items = normalizeItems([...items, { name: newItemInput.value, enabled: true }]);
+    } catch (error) {
+      resultEl.textContent = error.message;
+      return;
+    }
     newItemInput.value = '';
     renderItemList();
     drawWheel();
@@ -243,24 +304,38 @@
   }
 
   function importItemsFromFile(file) {
+    if (spinning || importing) return;
+    if (file.size > MAX_FILE_BYTES) {
+      resultEl.textContent = 'Could not import file: maximum size is 64 KiB.';
+      return;
+    }
+    importing = true;
+    updateControls();
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(reader.result);
-        if (!Array.isArray(parsed) || !parsed.every(it => it && typeof it.name === 'string')) {
-          throw new Error('Invalid format');
-        }
-        items = parsed.map(it => ({ name: String(it.name).slice(0, 40), enabled: !!it.enabled }));
+        items = normalizeItems(JSON.parse(reader.result));
         renderItemList();
         drawWheel();
         saveItems();
         resultEl.textContent = 'Items imported.';
-      } catch (e) {
-        resultEl.textContent = 'Could not import file: invalid format.';
+      } catch (error) {
+        resultEl.textContent = error instanceof SyntaxError
+          ? 'Could not import file: invalid JSON.'
+          : `Could not import file: ${error.message}`;
+      } finally {
+        importing = false;
+        updateControls();
       }
     };
     reader.onerror = () => {
       resultEl.textContent = 'Could not read file.';
+      importing = false;
+      updateControls();
+    };
+    reader.onabort = () => {
+      importing = false;
+      updateControls();
     };
     reader.readAsText(file);
   }
@@ -274,7 +349,7 @@
   });
 
   function spin() {
-    if (spinning) return;
+    if (spinning || importing) return;
     const active = enabledItems();
     if (active.length === 0) {
       resultEl.textContent = 'Enable at least one item to spin.';
@@ -282,7 +357,7 @@
     }
 
     spinning = true;
-    spinBtn.disabled = true;
+    updateControls();
     resultEl.textContent = '';
 
     const count = active.length;
@@ -306,7 +381,7 @@
 
     const startRotation = rotation;
     const endRotation = rotation + totalDelta;
-    const duration = 4200; // ms
+    const duration = reducedMotion.matches ? 0 : 4200;
     const startTime = performance.now();
 
     function easeOutCubic(t) {
@@ -315,7 +390,7 @@
 
     function animate(now) {
       const elapsed = now - startTime;
-      const t = Math.min(elapsed / duration, 1);
+      const t = duration === 0 ? 1 : Math.min(elapsed / duration, 1);
       const eased = easeOutCubic(t);
       rotation = startRotation + totalDelta * eased;
       canvas.style.transform = `rotate(${rotation}deg)`;
@@ -325,7 +400,7 @@
       } else {
         rotation = endRotation;
         spinning = false;
-        spinBtn.disabled = false;
+        updateControls();
         resultEl.textContent = '🎉 ' + winner.name;
         showWinScreen(winner.name);
       }
@@ -338,4 +413,6 @@
 
   renderItemList();
   drawWheel();
+  new ResizeObserver(drawWheel).observe(canvas);
+  window.addEventListener('resize', drawWheel);
 })();

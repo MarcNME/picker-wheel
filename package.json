@@ -1,0 +1,12 @@
+{
+  "name": "picker-wheel",
+  "private": true,
+  "scripts": {
+    "start": "http-server . -a 127.0.0.1 -p 4173 -c-1",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "http-server": "^14.1.1"
+  }
+}

@@ -12,18 +12,20 @@
     <div class="wheel-column">
       <div class="wheel-wrapper">
         <div class="pointer"></div>
-        <canvas id="wheel" width="600" height="600"></canvas>
+        <div class="wheel-disc">
+          <canvas id="wheel" width="600" height="600" role="img" aria-label="Picker wheel"></canvas>
+        </div>
         <div class="hub"></div>
       </div>
       <button id="spinBtn">Spin</button>
-      <div class="result" id="result"></div>
+      <div class="result" id="result" role="status" aria-live="polite" aria-atomic="true"></div>
     </div>
 
     <div class="panel">
       <h2>Items</h2>
       <div class="item-list" id="itemList"></div>
       <div class="add-row">
-        <input type="text" id="newItemInput" placeholder="Add new item…" maxlength="40">
+        <input type="text" id="newItemInput" aria-label="New item" placeholder="Add new item…" maxlength="40">
         <button id="addBtn">Add</button>
       </div>
       <div class="io-row">
@@ -41,14 +43,14 @@
     </a>
   </footer>
 
-  <div class="win-overlay" id="winOverlay">
+  <dialog class="win-overlay" id="winOverlay" aria-labelledby="winTitle" aria-describedby="winName">
     <div class="win-card">
-      <div class="win-label">Winner</div>
-      <div class="win-emoji">🎉</div>
+      <div class="win-label" id="winTitle">Winner</div>
+      <div class="win-emoji" aria-hidden="true">🎉</div>
       <div class="win-name" id="winName"></div>
-      <button id="winCloseBtn">Nice!</button>
+      <button id="winCloseBtn" autofocus>Nice!</button>
     </div>
-  </div>
+  </dialog>
 
 <script src="script.js"></script>
 </body>
